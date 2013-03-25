@@ -1,8 +1,10 @@
 
 
 var http = require('http');
+var url = require('url'); 
 var port = 6555;
 var parser = require('feedparser'); 
+var querystring = require('querystring');
 
 var mongodb = require('mongodb');
 var server = new mongodb.Server("127.0.0.1", 27017, {auto_reconnect : true});
@@ -16,23 +18,31 @@ db.open(function(error, client){
 	
 
 	http.createServer(function(req, res){
-		action = urlHandler(req.url);
+		action = urlHandler(req,res);
 		if(action)
 			action(req,res);
-		console.log("Got request"); 
+		console.log("Got request " + req.url); 
 	}).listen(port);
 		
 
 	console.log("Listening on port " + port);
 });
 
-var urlHandler = function(url){
-	switch(url){
+var urlHandler = function(req,res){
+	req.parsedUrl = url.parse(req.url, true);
+	switch(req.parsedUrl.pathname){
 		case '/favicon.ico':
+			res.end();
 			return null;
 			break;
 		case '/':
 			return showlatestnews;
+			break;
+		case '/removeFeed':
+			return removeFeed;
+			break;
+		case '/addFeed':
+			return addFeed;
 			break;
 	}
 	return null;
@@ -44,6 +54,18 @@ var showlatestnews = function(req,res){
 		if(!article){ res.end(); return;}
 		res.write(article.title + "<br />");
 	});
+}
+
+var addFeed = function(req,res){
+	collections.feedcollection.insert({'url':req.parsedUrl.query.feed});
+	res.end(); 
+
+}
+
+var removeFeed = function(req,res){
+	collections.feedcollection.remove({'url':req.parsedUrl.query.feed});
+	res.end(); 
+
 }
 
 var fetchnews = function(feedcollection, articlescollection){
