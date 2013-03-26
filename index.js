@@ -1,10 +1,12 @@
-
-
 var http = require('http');
-var url = require('url'); 
+var url = require('url');
 var port = 6555;
 var parser = require('feedparser'); 
 var querystring = require('querystring');
+var jade = require('jade');
+var fs = require('fs');
+var iconv = require('iconv');
+var buffer = require('buffer'); 
 
 var mongodb = require('mongodb');
 var server = new mongodb.Server("127.0.0.1", 27017, {auto_reconnect : true});
@@ -49,22 +51,28 @@ var urlHandler = function(req,res){
 }
 
 var showlatestnews = function(req,res){
-	res.setHeader("content-type", "text/html");
-	collections.articlescollection.find().each(function(err, article){
-		if(!article){ res.end(); return;}
-		res.write(article.title + "<br />");
+	res.setHeader("content-type", "text/html;charset=utf-8");
+	collections.articlescollection.find().toArray(function(err, articles){
+		console.log(articles.length); 
+		var jaded = jade.compile(fs.readFileSync("view/index.jade"), {"pretty" : 1} )
+		res.write(jaded({"articles" : articles}));	
+		res.end(); 
 	});
+	//collections.articlescollection.find().each(function(err, article){
+		//if(!article){ res.end(); return;}
+		//res.write(jade.compile("li")());
+	//});
 }
 
 var addFeed = function(req,res){
 	collections.feedcollection.insert({'url':req.parsedUrl.query.feed});
-	res.end(); 
+	res.end();
 
 }
 
 var removeFeed = function(req,res){
 	collections.feedcollection.remove({'url':req.parsedUrl.query.feed});
-	res.end(); 
+	res.end();
 
 }
 
@@ -78,7 +86,7 @@ var fetchnews = function(feedcollection, articlescollection){
 					collections.articlescollection.find({"guid" : article.guid}).count(function(err, count){
 						if(!count)
 							collections.articlescollection.insert(article, function(){});
-					});				
+					});
 				});
 			}
 		});
