@@ -2,8 +2,14 @@
 html
 	head
 		title My Reader
+		link(rel="stylesheet", href="http://readerstatic.michael-als.dk/style.css")
 	body
-		ul
-			each article in articles
-				li
-					a(href=article.link)= article.title
+		div#menu
+			div#addFeed
+				input#newFeed
+				button#addNewFeed Tilføj
+		div#body
+			div#controls
+			div#news
+script(src="http://readerstatic.michael-als.dk/jquery-1.9.1.min.js")
+script(src="http://readerstatic.michael-als.dk/app.js")

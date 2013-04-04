@@ -7,6 +7,7 @@ var jade = require('jade');
 var fs = require('fs');
 var iconv = require('iconv');
 var buffer = require('buffer'); 
+var request = require('request');
 
 var mongodb = require('mongodb');
 var server = new mongodb.Server("127.0.0.1", 27017, {auto_reconnect : true});
@@ -46,6 +47,12 @@ var urlHandler = function(req,res){
 		case '/addFeed':
 			return addFeed;
 			break;
+		case '/feedlist':
+			return feedlist;
+			break;
+		case '/newslist':
+			return newslist;
+			break;
 	}
 	return null;
 }
@@ -55,25 +62,45 @@ var showlatestnews = function(req,res){
 	collections.articlescollection.find().toArray(function(err, articles){
 		console.log(articles.length); 
 		var jaded = jade.compile(fs.readFileSync("view/index.jade"), {"pretty" : 1} )
-		res.write(jaded({"articles" : articles}));	
+		res.write(jaded());	
 		res.end(); 
 	});
-	//collections.articlescollection.find().each(function(err, article){
-		//if(!article){ res.end(); return;}
-		//res.write(jade.compile("li")());
-	//});
+}
+var feedlist = function(req, res){
+	collections.feedcollection.find().toArray(function(err, feeds){
+		res.write(JSON.stringify(feeds));
+		res.end(); 
+	});
+}
+
+var newslist = function(req, res){
+	collections.articlescollection.find().toArray(function(err, articles){
+		res.write(JSON.stringify(articles));
+		res.end(); 
+	});
 }
 
 var addFeed = function(req,res){
 	collections.feedcollection.insert({'url':req.parsedUrl.query.feed});
+	fetchnews(); 
 	res.end();
-
 }
 
 var removeFeed = function(req,res){
-	collections.feedcollection.remove({'url':req.parsedUrl.query.feed});
-	res.end();
-
+	collections.feedcollection.find({'url':req.parsedUrl.query.feed}).each(function(err, data){
+		if(!data) {
+			var lastOne = true; 
+			res.end();  
+			return; 
+		}	
+		collections.articlescollection.find({"feed_id" : data._id}).each(function(err, article){
+			if(!article){
+				return;
+			}
+				collections.articlescollection.remove(article, function(){});
+		});
+		collections.feedcollection.remove(data);
+	});
 }
 
 var fetchnews = function(feedcollection, articlescollection){
@@ -81,11 +108,17 @@ var fetchnews = function(feedcollection, articlescollection){
 		collections.feedcollection.find().each(function(err,feed){
 			if(feed){
 				console.log("Fetching news from " + feed.url); 
-				parser.parseUrl(feed.url).on('article', function(article){
-					article.feed_id = feed._id;
-					collections.articlescollection.find({"guid" : article.guid}).count(function(err, count){
-						if(!count)
-							collections.articlescollection.insert(article, function(){});
+				request({"uri" : feed.url, encoding: null}, function(err, response, body){
+					conv = new iconv.Iconv('iso-8859-1', 'utf-8');
+					if(!/encoding="utf-8"/i.test(body))
+						body = conv.convert(body).toString('utf-8');	
+
+					parser.parseString(body).on('article', function(article){
+						article.feed_id = feed._id;
+						collections.articlescollection.find({"guid" : article.guid}).count(function(err, count){
+							if(!count)
+								collections.articlescollection.insert(article, function(){});
+						});
 					});
 				});
 			}

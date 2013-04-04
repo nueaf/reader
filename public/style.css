@@ -1,0 +1,20 @@
+#menu{
+	width: 350px;
+	float: left;
+}
+#news{
+	float: left; 
+	width: 700px;
+}
+#news div {
+	overflow: auto;
+	border: 1px solid;
+	margin-bottom: 5px;
+	padding: 15px 5px;
+}
+#news p{
+	width: 650px;
+}
+#news h5{
+	margin: 0px;
+}
